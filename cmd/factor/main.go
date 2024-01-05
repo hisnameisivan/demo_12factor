@@ -14,11 +14,14 @@ import (
 )
 
 func main() {
-	logrus.Info("hello world")
+	log := logrus.New()
+	log.SetOutput(os.Stdout)
+
+	log.Info("start app")
 
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
-		logrus.Fatal("port is empty")
+		log.Fatal("port is empty")
 	}
 
 	router := mux.NewRouter()
@@ -32,13 +35,21 @@ func main() {
 		Handler: router,
 	}
 
-	go serv.ListenAndServe()
+	go func() {
+		serv.ListenAndServe()
+	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM) // kill -TERM <pid>
 
 	<-quit
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	log.Info("stopping app")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	serv.Shutdown(ctx)
+	err := serv.Shutdown(ctx)
+	if err != nil {
+		log.Errorf("error when shuddown app : %v", err)
+	}
+
+	log.Info("exit")
 }
